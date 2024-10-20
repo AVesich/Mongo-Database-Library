@@ -48,7 +48,25 @@ class BorrowerEngine:
             print("Incorrect # of args. 1 must be provided.")
             return
         
-        print("No books found!")
+        # Check if the borrower exists
+        user = self.db.borrowers.find_one({"username":args[0]})
+        if user is None:
+            print("The borrower " + args[0] + " does not exist.")
+            return
+        
+        booksBorrowedByUser = self.db.books.find({"borrower":args[0]})
+        books = []
+        for book in booksBorrowedByUser:
+            books.append(book)
+        
+        if len(books) == 0:
+            print(args[0] + " has 0 books checked out.")
+        else:
+            result = args[0] + " currently has checked out "
+            for book in books:
+                result += book["name"] + " (ISBN " + book["ISBN"] + "), "
+            result = result[0:len(result)-2]
+            print(result)
 
     def search_borrowers(self, args: list[str]): # search type, query
         arg_count = len(args)

@@ -59,15 +59,22 @@ class BookEngine:
             print("Please enter a valid search type: 'name', 'author', 'isbn'.")
             return
         
+        resultBooks = []
         for result in results:
-            response = "Name: " + result['name'] + ",   Authors: "
-            for author in result['authors'] :
-                response += author + ", "
-            if len(result['authors']) > 0:
-                response = response [0:len(response)-2]
-            response += ",   ISBN: " + result['ISBN']
-            response += ",   # of pages: " + result['num_pages']
-            print(response)
+            resultBooks.append(result)
+        
+        if len(resultBooks) == 0:
+            print("No matching books found.")
+        else: 
+            for book in resultBooks:
+                response = "Name: " + book['name'] + ",   Authors: "
+                for author in book['authors'] :
+                    response += author + ", "
+                if len(book['authors']) > 0:
+                    response = response [0:len(response)-2]
+                response += ",   ISBN: " + book['ISBN']
+                response += ",   # of pages: " + book['num_pages']
+                print(response)
 
     def list_books(self, args: list[str]): # sort type
         arg_count = len(args)
@@ -87,15 +94,22 @@ class BookEngine:
             print("Please enter a valid search type: 'name', 'author', 'isbn', 'page count'.")
             return
         
+        resultBooks = []
         for result in results:
-            response = "Name: " + result['name'] + ",   Authors: "
-            for author in result['authors'] :
-                response += author + ", "
-            if len(result['authors']) > 0:
-                response = response [0:len(response)-2]
-            response += ",   ISBN: " + result['ISBN']
-            response += ",   # of pages: " + result['num_pages']
-            print(response)
+            resultBooks.append(result)
+
+        if len(resultBooks) == 0:
+            print("No books found.")
+        else:
+            for book in resultBooks:
+                response = "Name: " + book['name'] + ",   Authors: "
+                for author in book['authors'] :
+                    response += author + ", "
+                if len(book['authors']) > 0:
+                    response = response [0:len(response)-2]
+                response += ",   ISBN: " + book['ISBN']
+                response += ",   # of pages: " + book['num_pages']
+                print(response)
 
     def checkout_book(self, args: list[str]): # isbn, username
         arg_count = len(args)
@@ -103,7 +117,19 @@ class BookEngine:
             print("Incorrect # of args. 2 must be provided.")
             return
         
-        print("Book checked out to borrower!")
+        # Check if the borrower exists
+        user = self.db.borrowers.find_one({"username":args[1]})
+        if user is None:
+            print("The borrower " + args[1] + " does not exist.")
+            return
+        
+        # Only perform the update if there isn't already a borrower
+        bookWithoutBorrower = self.db.books.find_one({"ISBN":args[0], "borrower": {"$exists": False}})
+        if bookWithoutBorrower is not None:
+            self.db.books.update_one({"ISBN":args[0]}, {"$set": {"borrower" : args[1]}})
+            print("Book checked out to borrower!")
+        else:
+            print("The book cannot be checked out.")
 
     def return_book(self, args: list[str]): # isbn
         arg_count = len(args)
@@ -111,7 +137,13 @@ class BookEngine:
             print("Incorrect # of args. 1 must be provided.")
             return
         
-        print("Book returned to the library!")
+        # See if the book has been checked out
+        bookWithBorrower = self.db.books.find_one({"ISBN":args[0], "borrower": {"$exists": True}})
+        if bookWithBorrower is not None:
+            self.db.books.update_one({"ISBN":args[0]}, {"$unset": {"borrower" : 1}}) # Remove the borrower        
+            print("Book returned to the library!")
+        else:
+            print("The book cannot be returned.")
 
     def check_borrower_of_book(self, args: list[str]): # isbn
         arg_count = len(args)
@@ -119,7 +151,11 @@ class BookEngine:
             print("Incorrect # of args. 1 must be provided.")
             return
         
-        print("Book not borrowed!")
+        bookWithBorrower = self.db.books.find_one({"ISBN":args[0], "borrower": {"$exists": True}})
+        if bookWithBorrower is not None:
+            print("Book with ISBN " + args[0] + " is borrowed by " + bookWithBorrower["borrower"])
+        else:
+            print("Book not borrowed!")
 
     possible_commands = {
         "add book" : add_book,
